@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dice Football</title>
+<style>
+  :root{
+    --bg:#0f1a14; --panel:#16251c; --line:#2b4535; --text:#e8f1ea; --muted:#8fa89a;
+    --grass:#2f7d44; --grass2:#2a7340; --accent:#f2c14e; --off:#4aa3ff; --def:#ff6b6b; --good:#5fd38a; --bad:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,Segoe UI,Roboto,sans-serif;display:flex;justify-content:center}
+  main{width:100%;max-width:820px;padding:16px}
+  h1{margin:0 0 4px;font-size:24px;letter-spacing:.5px}
+  .sub{color:var(--muted);margin-bottom:12px;font-size:14px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+  .banner{display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:18px;flex-wrap:wrap;gap:6px}
+  .banner span.k{color:var(--muted);font-weight:400;font-size:13px;margin-right:6px}
+  /* field */
+  .field{position:relative;height:64px;border-radius:8px;overflow:hidden;margin-top:10px;
+    background:repeating-linear-gradient(90deg,var(--grass) 0 9.0%,var(--grass2) 9.0% 10%);border:2px solid #fff3}
+  .marker{position:absolute;top:0;bottom:0;width:3px;transform:translateX(-1px);transition:left .9s ease}
+  .marker.fd{background:var(--accent)}
+  .marker.los{background:#fff;opacity:.7;width:2px}
+  .ball{position:absolute;top:50%;font-size:28px;transform:translate(-50%,-50%);transition:left 1.1s cubic-bezier(.3,.7,.3,1);filter:drop-shadow(0 2px 2px #0008)}
+  .goal{position:absolute;right:0;top:0;bottom:0;width:8px;background:#fff;opacity:.85}
+  .yl{position:absolute;bottom:2px;font-size:10px;color:#fff9;transform:translateX(-50%)}
+  .pop{position:absolute;top:2px;font-weight:900;font-size:22px;opacity:0;transform:translateX(-50%);text-shadow:0 2px 4px #000;pointer-events:none}
+  .pop.pos{color:var(--good)} .pop.neg{color:var(--bad)}
+  .pop.go{animation:pop 1.5s ease-out}
+  @keyframes pop{0%{opacity:0;transform:translate(-50%,14px) scale(.7)}20%{opacity:1;transform:translate(-50%,0) scale(1.2)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-10px) scale(1)}}
+  .marker.flash{animation:flash .9s}
+  @keyframes flash{50%{box-shadow:0 0 14px 4px var(--accent)}}
+  /* dice */
+  .tray{display:flex;gap:10px;flex-wrap:wrap;min-height:70px;align-items:center;padding:6px;border:2px dashed transparent;border-radius:10px;margin-bottom:12px}
+  .tray.drop-hover,.grp.drop-hover{border-color:var(--accent);background:#f2c14e18}
+  .die{width:56px;height:56px;border-radius:10px;background:#fff;color:#111;display:grid;place-items:center;font-weight:800;font-size:26px;
+    cursor:pointer;border:3px solid transparent;user-select:none;box-shadow:0 2px 0 #0006}
+  .die.drag{cursor:grab;touch-action:none}
+  .die.sel{border-color:var(--accent);transform:translateY(-4px)}
+  .die.def{background:#ffd9d9}
+  .die.small{width:34px;height:34px;font-size:17px;border-radius:7px}
+  .die.dragging{opacity:.25}
+  .die.ghost{position:fixed;z-index:99;pointer-events:none;transform:rotate(8deg) scale(1.1);box-shadow:0 8px 16px #000a;opacity:.95}
+  .die.rolling{animation:roll .35s}
+  @keyframes roll{0%{transform:rotate(0)}50%{transform:rotate(180deg) scale(.85)}100%{transform:rotate(360deg)}}
+  .groups{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .grp{background:#0003;border:2px dashed var(--line);border-radius:10px;padding:8px;min-height:118px;cursor:pointer;display:flex;flex-direction:column;gap:6px}
+  .grp.inactive{opacity:.5}
+  .grp h3{margin:0;font-size:14px;display:flex;justify-content:space-between}
+  .grp .tot{color:var(--accent);font-size:20px;font-weight:800}
+  .grp .hint{font-size:11px;color:var(--muted)}
+  .dice-in{display:flex;gap:4px;flex-wrap:wrap}
+  button{background:var(--accent);color:#1a1a1a;border:0;border-radius:8px;padding:10px 16px;font-weight:700;font-size:15px;cursor:pointer}
+  button.sec{background:#2b4535;color:var(--text)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .seg{display:inline-flex;border:2px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{border-radius:0;background:transparent;color:var(--text)}
+  .seg button.on{background:var(--off);color:#06223d}
+  .note{color:var(--muted);font-size:13px}
+  .label{color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px}
+  /* matchups */
+  .mrow{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #fff1;
+    opacity:0;transform:translateY(8px);transition:opacity .4s,transform .4s}
+  .mrow.show{opacity:1;transform:none}
+  .mside{display:flex;flex-direction:column;gap:4px}
+  .mside.def{align-items:flex-end;text-align:right}
+  .mside .mname{font-weight:700;font-size:14px}
+  .mside .mname small{color:var(--muted);font-weight:400;margin-left:4px}
+  .mside .mdice{display:flex;gap:3px;flex-wrap:wrap}
+  .mside.def .mdice{justify-content:flex-end}
+  .mval{font-size:26px;font-weight:900}
+  .mside.off .mval{color:var(--off)} .mside.def .mval{color:var(--def)}
+  .mbar{position:relative;height:26px;background:#0005;border-radius:13px;overflow:hidden}
+  .mbar::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;background:#fff6}
+  .mbar .fill{position:absolute;top:0;bottom:0;width:0;transition:width .7s ease .2s}
+  .mbar .fill.off{right:50%;background:var(--off)} .mbar .fill.def{left:50%;background:var(--def)}
+  .mbar .badge{position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:13px;z-index:2;text-shadow:0 1px 2px #000}
+  .verdict{opacity:0;transition:opacity .4s;padding-top:10px}
+  .verdict.show{opacity:1}
+  .verdict .big{font-size:24px;font-weight:800}
+  .pos{color:var(--good)} .neg{color:var(--bad)}
+  .calc{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--muted);margin-top:6px}
+  .log{max-height:150px;overflow:auto;font-size:13px;color:var(--muted)}
+  .log div{padding:2px 0;border-bottom:1px solid #fff1}
+  .end{text-align:center;padding:18px}
+  .end h2{margin:0 0 6px;font-size:30px}
+  details{color:var(--muted);font-size:13px}
+  details p{margin:6px 0}
+  @media (max-width:600px){.groups{grid-template-columns:repeat(2,1fr)} .mrow{grid-template-columns:1fr 1fr 1fr;gap:6px} .mval{font-size:20px}}
+</style>
+</head>
+<body>
+<main>
+  <h1>🏈 Dice Football</h1>
+  <div class="sub">Roll, assign dice to your position groups, beat the defense. Score a touchdown in one drive.</div>
+
+  <div class="panel" id="top">
+    <div class="banner" id="banner"></div>
+    <div class="field" id="field">
+      <div class="marker los" id="los"></div>
+      <div class="marker fd" id="fd"></div>
+      <div class="goal"></div>
+      <div class="ball" id="ball">🏈</div>
+      <div class="pop" id="pop"></div>
+    </div>
+  </div>
+
+  <div id="app"></div>
+
+  <details class="panel">
+    <summary>How to play</summary>
+    <p><b>1.</b> Roll 5 dice. Tap dice to mark them, then reroll those once (optional).</p>
+    <p><b>2.</b> Pick Run or Pass. <b>Drag</b> each die onto a group (or tap a die, then a group). A group's strength is the sum of its dice. Dice on groups your play doesn't use are wasted.</p>
+    <p><b>Run (steady):</b> yards = ((OL − DL) + (RB − LB)) ÷ 2. Big plays are rare, no sacks.</p>
+    <p><b>Pass (boom or bust):</b> yards = ((QB + WR) − DB) ÷ 2 + (OL − DL) ÷ 3. Big plays are common and huge, but you can be sacked, throw it incomplete (coverage ≤ 0), or get intercepted.</p>
+    <p>Four downs to gain 10 yards. You start on your own 25. A turnover ends the drive.</p>
+  </details>
+</main>
+
+<!-- ============ GAME LOGIC (pure, no DOM) ============ -->
+<script id="logic">
+const CFG = {
+  START: 25, DICE: 5, DOWNS: 4, TO_GO: 10, MAX_LOSS: 10, SACK_LOSS: 5,
+  run:  { BIG_T: 14, BIG_BONUS: 8,  TO_T: 12 },                 // steady
+  pass: { BIG_T: 8,  BIG_BONUS: 15, TO_T: 8, SACK_T: 5 }        // boom / bust
+};
+const OFF_GROUPS = ['OL','QB','WR','RB'];
+const DEF_GROUPS = ['DL','LB','DB'];
+const PLAY_USES = { run:['OL','RB'], pass:['OL','QB','WR'] };
+
+const d6 = () => 1 + Math.floor(Math.random()*6);
+const rollDice = n => Array.from({length:n}, d6);
+const sumGroup = (dice, assign, g) => dice.reduce((s,v,i)=> s + (assign[i]===g ? v : 0), 0);
+function groupTotals(dice, assign, groups){
+  const t = {}; groups.forEach(g => t[g] = sumGroup(dice, assign, g)); return t;
+}
+function cpuAssign(n){ return Array.from({length:n}, () => DEF_GROUPS[Math.floor(Math.random()*DEF_GROUPS.length)]); }
+
+// off/def are group-total objects. Returns {yards, event, swing, calc}
+function resolvePlay(type, off, def){
+  const line = off.OL - def.DL;
+  const c = CFG[type];
+  let yards, swing, event = null, calc;
+  if(type === 'run'){
+    swing = line + (off.RB - def.LB);
+    yards = Math.round(swing / 2);
+    calc = `((OL ${off.OL} − DL ${def.DL}) + (RB ${off.RB} − LB ${def.LB})) ÷ 2 = ${yards}`;
+  } else {
+    if(line <= -c.SACK_T){
+      return { yards:-CFG.SACK_LOSS, event:'sack', swing:line,
+        calc:`Protection OL ${off.OL} − DL ${def.DL} = ${line} ≤ −${c.SACK_T} → sack` };
+    }
+    const cover = off.QB + off.WR - def.DB;
+    swing = cover + line;
+    yards = Math.round(cover/2 + line/3);
+    calc = `((QB ${off.QB} + WR ${off.WR}) − DB ${def.DB}) ÷ 2 + (OL ${off.OL} − DL ${def.DL}) ÷ 3 = ${yards}`;
+    if(swing > -c.TO_T && cover <= 0){
+      return { yards:0, event:'incomplete', swing, calc: calc + ' · coverage ≤ 0 → incomplete' };
+    }
+  }
+  if(swing <= -c.TO_T){
+    event = type === 'run' ? 'fumble' : 'interception';
+    return { yards: Math.max(yards, -CFG.MAX_LOSS), event, swing, calc };
+  }
+  if(swing >= c.BIG_T){ event = 'bigplay'; yards += c.BIG_BONUS; calc += ` + ${c.BIG_BONUS} big play`; }
+  yards = Math.max(yards, -CFG.MAX_LOSS);
+  return { yards, event, swing, calc };
+}
+
+function newDrive(){ return { ball:CFG.START, firstDownAt:CFG.START+CFG.TO_GO, down:1, over:false, result:null }; }
+
+// Applies a resolved play to the drive state (mutates, returns state)
+function applyPlay(drive, r){
+  drive.ball = Math.max(1, drive.ball + r.yards);
+  if(r.event === 'fumble' || r.event === 'interception'){ drive.over = true; drive.result = 'turnover'; return drive; }
+  if(drive.ball >= 100){ drive.ball = 100; drive.over = true; drive.result = 'td'; return drive; }
+  if(drive.ball >= drive.firstDownAt){
+    drive.down = 1; drive.firstDownAt = Math.min(100, drive.ball + CFG.TO_GO); r.firstDown = true;
+  } else {
+    drive.down++;
+    if(drive.down > CFG.DOWNS){ drive.over = true; drive.result = 'downs'; }
+  }
+  return drive;
+}
+
+/* ---- balance tooling (console / Node) ---- */
+const _assignCache = {};
+function assignsFor(groups){
+  const key = groups.join();
+  if(_assignCache[key]) return _assignCache[key];
+  const out = [], n = groups.length;
+  for(let c=0;c<Math.pow(n,CFG.DICE);c++){ let x=c; const a=[]; for(let i=0;i<CFG.DICE;i++){ a.push(groups[x%n]); x=Math.floor(x/n); } out.push(a); }
+  return (_assignCache[key] = out);
+}
+const randomDefense = () => groupTotals(rollDice(CFG.DICE), cpuAssign(CFG.DICE), DEF_GROUPS);
+// best split of `dice` for a play type = highest average yards vs sampled defenses
+function bestAssign(dice, type, defs){
+  let best = -Infinity, ba = null;
+  for(const a of assignsFor(PLAY_USES[type])){
+    const o = groupTotals(dice, a, OFF_GROUPS); let s = 0;
+    for(const d of defs) s += resolvePlay(type, o, d).yards;
+    if(s > best){ best = s; ba = a; }
+  }
+  return { assign: ba, score: best/defs.length };
+}
+function playStats(type, N = 2000){
+  const defs = Array.from({length:60}, randomDefense);
+  const ys = [], ev = {};
+  for(let k=0;k<N;k++){
+    const dice = rollDice(CFG.DICE), {assign} = bestAssign(dice, type, defs);
+    const r = resolvePlay(type, groupTotals(dice, assign, OFF_GROUPS), randomDefense());
+    ys.push(r.yards); const e = r.event || 'normal'; ev[e] = (ev[e]||0)+1;
+  }
+  ys.sort((a,b)=>a-b);
+  const pct = k => +(ev[k]/N*100||0).toFixed(1);
+  return { type, avg:+(ys.reduce((a,b)=>a+b)/N).toFixed(2), p10:ys[N*.1|0], med:ys[N/2|0], p90:ys[N*.9|0],
+    big:pct('bigplay'), sack:pct('sack'), incomplete:pct('incomplete'), turnover:+((ev.fumble||0)+(ev.interception||0))/N*100 };
+}
+// drives: player picks the better play type by expected yards, optimal split
+function simulate(n = 500){
+  const out = {td:0, turnover:0, downs:0}; let plays = 0;
+  const defs = Array.from({length:60}, randomDefense);
+  for(let k=0;k<n;k++){
+    const d = newDrive();
+    while(!d.over){
+      const dice = rollDice(CFG.DICE);
+      const a = bestAssign(dice,'run',defs), b = bestAssign(dice,'pass',defs);
+      const type = a.score >= b.score ? 'run' : 'pass', assign = type==='run' ? a.assign : b.assign;
+      applyPlay(d, resolvePlay(type, groupTotals(dice, assign, OFF_GROUPS), randomDefense())); plays++;
+    }
+    out[d.result]++;
+  }
+  return { drives:n, tdRate:+(out.td/n*100).toFixed(1), outcomes:out, avgPlays:+(plays/n).toFixed(1) };
+}
+</script>
+
+<!-- ============ UI ============ -->
+<script id="ui">
+const $app = document.getElementById('app');
+const $ = id => document.getElementById(id);
+let S; // game state
+
+const ORD = ['','1st','2nd','3rd','4th'];
+const EVENT_TEXT = { sack:'💥 SACK!', fumble:'😱 FUMBLE! Turnover.', interception:'🛑 INTERCEPTED! Turnover.',
+                     bigplay:'🔥 BIG PLAY!', incomplete:'🙅 INCOMPLETE' };
+
+function newGame(){
+  S = { drive:newDrive(), phase:'start', dice:[], marked:new Set(), rerolled:false, assign:[], selected:null,
+        type:'run', cpuDice:null, cpuAssign:null, last:null, log:[], rolling:false, revealed:0, verdict:false, losAt:CFG.START };
+  updateField(); render();
+}
+
+/* ---------- persistent field + banner (never rebuilt, so the ball can animate) ---------- */
+(function buildTicks(){
+  const f = $('field');
+  [10,20,30,40,50,60,70,80,90].forEach(p=>{
+    const s = document.createElement('span'); s.className='yl'; s.style.left=p+'%'; s.textContent = p<=50?p:100-p; f.appendChild(s);
+  });
+})();
+const clampPct = p => Math.min(Math.max(p,2),98);
+function updateField(){
+  const d = S.drive;
+  $('ball').style.left = clampPct(d.ball)+'%';
+  $('fd').style.left = Math.min(d.firstDownAt,100)+'%';
+  $('los').style.left = S.losAt+'%';
+  const dist = d.firstDownAt - d.ball, ord = ORD[Math.min(d.down,4)];
+  $('banner').innerHTML =
+    `<div><span class="k">DOWN</span>${ord} &amp; ${d.firstDownAt>=100?'Goal':dist}</div>
+     <div><span class="k">BALL</span>${d.ball<=50?'own '+d.ball:'opp '+(100-d.ball)}</div>
+     <div><span class="k">TO TD</span>${100-d.ball} yds</div>`;
+}
+function showPop(yards, atPct){
+  const p = $('pop'); p.textContent = (yards>0?'+':'')+yards+' YDS';
+  p.className = 'pop '+(yards>=0?'pos':'neg'); p.style.left = clampPct(atPct)+'%';
+  void p.offsetWidth; p.classList.add('go');
+}
+
+/* ---------- play flow ---------- */
+function startPlay(){
+  S.dice = rollDice(CFG.DICE); S.marked = new Set(); S.rerolled = false; S.assign = Array(CFG.DICE).fill(null);
+  S.selected = null; S.cpuDice = null; S.cpuAssign = null; S.last = null; S.phase = 'roll'; S.rolling = true;
+  S.losAt = S.drive.ball; updateField(); render(); setTimeout(()=>{S.rolling=false;},400);
+}
+function toggleMark(i){ if(S.phase!=='roll'||S.rerolled) return; S.marked.has(i)?S.marked.delete(i):S.marked.add(i); render(); }
+function doReroll(){
+  S.marked.forEach(i => S.dice[i] = d6()); S.rerolled = true; S.rolling = true; S.marked = new Set(); render();
+  setTimeout(()=>{S.rolling=false;},400);
+}
+function toAssign(){ S.phase = 'assign'; S.rolling = false; render(); }
+function tapDie(i){
+  if(S.assign[i]!==null){ S.assign[i]=null; S.selected=null; } else S.selected = (S.selected===i ? null : i);
+  render();
+}
+function pickGroup(e, g){
+  if(S.phase!=='assign' || S.selected===null || e.target.closest('.die')) return;
+  S.assign[S.selected] = g; S.selected = null; render();
+}
+function setType(t){ S.type = t; render(); }
+
+/* ---------- drag & drop (pointer events: mouse + touch) ---------- */
+let drag = null;
+function dragStart(e, i){
+  if(S.phase!=='assign' || (e.button!==undefined && e.button!==0)) return;
+  e.preventDefault();
+  drag = { i, x:e.clientX, y:e.clientY, moved:false, ghost:null, el:e.currentTarget, target:null };
+  window.addEventListener('pointermove', dragMove);
+  window.addEventListener('pointerup', dragEnd);
+  window.addEventListener('pointercancel', dragEnd);
+}
+function dragMove(e){
+  if(!drag) return;
+  if(!drag.moved && Math.hypot(e.clientX-drag.x, e.clientY-drag.y) > 6){
+    drag.moved = true;
+    drag.ghost = drag.el.cloneNode(true); drag.ghost.classList.add('ghost'); drag.ghost.classList.remove('dragging','sel');
+    document.body.appendChild(drag.ghost); drag.el.classList.add('dragging');
+  }
+  if(!drag.moved) return;
+  const g = drag.ghost;
+  g.style.left = (e.clientX - g.offsetWidth/2)+'px'; g.style.top = (e.clientY - g.offsetHeight/2)+'px';
+  document.querySelectorAll('.drop-hover').forEach(el=>el.classList.remove('drop-hover'));
+  const t = document.elementsFromPoint(e.clientX, e.clientY).find(el=>el.dataset && el.dataset.drop);
+  drag.target = t ? t.dataset.drop : null;
+  if(t) t.classList.add('drop-hover');
+}
+function dragEnd(e){
+  window.removeEventListener('pointermove', dragMove);
+  window.removeEventListener('pointerup', dragEnd);
+  window.removeEventListener('pointercancel', dragEnd);
+  const d = drag; drag = null; if(!d) return;
+  document.querySelectorAll('.drop-hover').forEach(el=>el.classList.remove('drop-hover'));
+  if(d.ghost) d.ghost.remove();
+  if(!d.moved){ if(e.type==='pointerup') tapDie(d.i); return; }     // plain tap
+  if(e.type==='pointerup' && d.target){ S.assign[d.i] = d.target==='tray' ? null : d.target; S.selected = null; }
+  render();
+}
+
+/* ---------- snap + resolution sequence ---------- */
+function snap(){
+  const off = groupTotals(S.dice, S.assign, OFF_GROUPS);
+  S.cpuDice = rollDice(CFG.DICE); S.cpuAssign = cpuAssign(CFG.DICE);
+  const def = groupTotals(S.cpuDice, S.cpuAssign, DEF_GROUPS);
+  const r = resolvePlay(S.type, off, def); r.off = off; r.def = def; r.type = S.type;
+  const before = { ...S.drive };
+  S.last = r; S.phase = 'resolving'; S.revealed = 0; S.verdict = false;
+  render();
+
+  const rows = [...document.querySelectorAll('.mrow')];
+  const STEP = 750; let t = 400;
+  rows.forEach((row,k)=> setTimeout(()=>{ row.classList.add('show'); const f=row.querySelector('.fill'); f.style.width=f.dataset.w+'%'; S.revealed = k+1; }, t + k*STEP));
+  t += rows.length*STEP + 200;
+  setTimeout(()=>{ S.verdict = true; document.querySelector('.verdict').classList.add('show'); }, t);
+  t += 900;
+  setTimeout(()=>{                                   // ball moves
+    applyPlay(S.drive, r); updateField(); showPop(r.yards, S.drive.ball);
+    if(r.firstDown){ const fd=$('fd'); fd.classList.remove('flash'); void fd.offsetWidth; fd.classList.add('flash'); }
+  }, t);
+  t += 1500;
+  setTimeout(()=>{ S.log.unshift(describe(before, r)); S.phase='result'; render(); }, t);
+}
+function describe(before, r){
+  const dist = Math.max(0, before.firstDownAt - before.ball);
+  const label = { sack:'SACK', fumble:'FUMBLE', interception:'INTERCEPTION', bigplay:'BIG PLAY', incomplete:'INCOMPLETE' }[r.event] || '';
+  return `${ORD[before.down]} & ${before.firstDownAt>=100?'Goal':dist} — ${r.type.toUpperCase()} ${r.yards>0?'+':''}${r.yards} yds ${label}`;
+}
+
+/* ---------- rendering ---------- */
+const dieEl = (v, cls='', attrs='') => `<div class="die ${cls} ${S.rolling?'rolling':''}" ${attrs}>${v}</div>`;
+const chip = (v, def) => `<div class="die small ${def?'def':''}">${v}</div>`;
+
+function renderOffense(){
+  const assigning = S.phase==='assign', active = PLAY_USES[S.type];
+  const dragAttr = i => assigning ? `onpointerdown="dragStart(event,${i})"` : '';
+  const tray = S.dice.map((v,i)=>{
+    if(S.assign[i]!==null) return '';
+    const sel = (S.phase==='roll' && S.marked.has(i)) || (assigning && S.selected===i);
+    return dieEl(v, (sel?'sel ':'')+(assigning?'drag':''), S.phase==='roll' ? `onclick="toggleMark(${i})"` : dragAttr(i));
+  }).join('') || '<span class="note">All dice assigned — drag a die back here to undo.</span>';
+
+  const groups = OFF_GROUPS.map(g=>{
+    const dice = S.dice.map((v,i)=> S.assign[i]===g ? dieEl(v,'small '+(assigning?'drag':''),dragAttr(i)) : '').join('');
+    const used = active.includes(g);
+    return `<div class="grp ${used?'':'inactive'}" data-drop="${g}" onclick="pickGroup(event,'${g}')">
+      <h3><span>${g}</span><span class="tot">${sumGroup(S.dice,S.assign,g)}</span></h3>
+      <div class="hint">${{OL:'blocks vs DL',QB:'passing',WR:'vs DB',RB:'vs LB'}[g]}${used?'':' · unused'}</div>
+      <div class="dice-in">${dice}</div></div>`;
+  }).join('');
+
+  let controls = '';
+  if(S.phase==='roll'){
+    controls = `<div class="row">
+      <button ${S.rerolled||S.marked.size===0?'disabled':''} onclick="doReroll()">Reroll marked (${S.rerolled?0:1} left)</button>
+      <button class="sec" onclick="toAssign()">Keep &amp; assign →</button>
+      <span class="note">${S.rerolled?'Reroll used.':'Tap dice to mark for reroll.'}</span></div>`;
+  } else if(assigning){
+    controls = `<div class="row">
+      <div class="seg"><button class="${S.type==='run'?'on':''}" onclick="setType('run')">Run</button>
+      <button class="${S.type==='pass'?'on':''}" onclick="setType('pass')">Pass</button></div>
+      <button ${S.assign.every(a=>a!==null)?'':'disabled'} onclick="snap()">SNAP ▶</button>
+      <span class="note">${S.type==='run'?'Run: steady yards, rare big plays.':'Pass: big plays, but sacks, incompletions, picks.'}</span></div>
+      <div class="note" style="margin-top:6px">Drag dice onto groups (or tap a die, then a group).</div>`;
+  }
+  return `<div class="panel"><p class="label">Your offense</p>
+    <div class="tray" data-drop="tray">${tray}</div>
+    <div class="groups">${groups}</div>
+    <div style="margin-top:12px">${controls}</div></div>`;
+}
+
+function matchupRows(){
+  const r = S.last;
+  const mk = (label, offG, defG, offName, defName) => {
+    const ov = offG.reduce((s,g)=>s+r.off[g],0), dv = r.def[defG], diff = ov - dv;
+    const w = Math.min(Math.abs(diff)/12,1)*50;
+    const od = S.dice.map((v,i)=> offG.includes(S.assign[i]) ? chip(v,false):'').join('');
+    const dd = S.cpuDice.map((v,i)=> S.cpuAssign[i]===defG ? chip(v,true):'').join('');
+    return { diff, html: `<div class="mrow ${S.revealed>0?'show':''}">
+      <div class="mside off"><div class="mname">${offName}<small>${label}</small></div><div class="mdice">${od||'<span class="note">no dice</span>'}</div><div class="mval">${ov}</div></div>
+      <div class="mbar"><div class="fill ${diff>=0?'off':'def'}" data-w="${w}" style="width:0"></div><div class="badge">${diff>0?'+':''}${diff}</div></div>
+      <div class="mside def"><div class="mname">${defName}</div><div class="mdice">${dd||'<span class="note">no dice</span>'}</div><div class="mval">${dv}</div></div></div>` };
+  };
+  const rows = S.last.type==='run'
+    ? [ mk('Blocking',['OL'],'DL','OL','DL'), mk('Rushing',['RB'],'LB','RB','LB') ]
+    : [ mk('Protection',['OL'],'DL','OL','DL'), mk('Coverage',['QB','WR'],'DB','QB + WR','DB') ];
+  return rows;
+}
+
+function renderResult(){
+  const r = S.last, done = S.phase==='result', d = S.drive;
+  const rows = matchupRows().map(x=>x.html).join('');
+  const wasted = OFF_GROUPS.filter(g=>!PLAY_USES[r.type].includes(g) && r.off[g]>0).map(g=>`${g} ${r.off[g]}`);
+  const rowsShown = rows.replace(/class="mrow /g, 'class="mrow ');
+  return `<div class="panel result"><p class="label">${r.type==='run'?'Run':'Pass'} — matchups</p>
+    ${rowsShown}
+    ${wasted.length?`<div class="note" style="margin-top:8px">Unused on this play: ${wasted.join(', ')}</div>`:''}
+    <div class="verdict ${S.verdict||done?'show':''}">
+      <div class="big ${r.yards>=0?'pos':'neg'}">${r.yards>0?'+':''}${r.yards} yards ${EVENT_TEXT[r.event]||''}</div>
+      <div class="calc">${r.calc}</div></div>
+    ${done && !d.over ? `<div style="margin-top:12px"><button onclick="startPlay()">Next play →</button></div>`:''}</div>`;
+}
+
+function renderEnd(){
+  const t = { td:['🏆 TOUCHDOWN!','You marched down the field.'], downs:['❌ Turnover on downs','You ran out of downs.'],
+              turnover:['❌ Turnover','The defense took the ball.'] }[S.drive.result];
+  return `<div class="panel end"><h2>${t[0]}</h2><p>${t[1]} (${S.log.length} plays)</p><button onclick="newGame()">New drive</button></div>`;
+}
+
+function render(){
+  let html = '';
+  if(S.phase==='start'){
+    html += `<div class="panel end"><p>Start on your own 25. Gain 10 yards in 4 downs, reach the end zone.</p><button onclick="startPlay()">Kick off the drive</button></div>`;
+  } else {
+    html += renderOffense();
+    if(S.last) html += renderResult();
+    if(S.drive.over && S.phase==='result') html += renderEnd();
+  }
+  if(S.log.length) html += `<div class="panel"><p class="label">Play log</p><div class="log">${S.log.map((l,i)=>`<div>${S.log.length-i}. ${l}</div>`).join('')}</div></div>`;
+  $app.innerHTML = html;
+}
+newGame();
+</script>
+</body>
+</html>
