@@ -1,0 +1,171 @@
+<title>Bobby's Boom Band</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
+<style>
+/* Layout: one fixed 1280x720 arcade cabinet, scaled to fit any window (letterboxed, never scrolls). Marquee on top, band member on the left, three music tracks on the right, controls underneath. */
+:root {
+  --bg: #14102a;
+  --panel: #1f1840;
+  --panel-2: #2b2258;
+  --hi: #5b4aa3;
+  --lo: #0b0818;
+  --ink: #f4efff;
+  --muted: #b0a5d8;
+  --guitar: #ff5d73;
+  --drums: #ffd23f;
+  --synth: #3ee6c4;
+  --happy: #7dff8a;
+  --angry: #ff4a3d;
+  --display: "Press Start 2P", "Courier New", monospace;
+  --body: "VT323", "Courier New", monospace;
+  --stars: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' shape-rendering='crispEdges'%3E%3Cg fill='%235b4aa3'%3E%3Crect x='12' y='20' width='2' height='2'/%3E%3Crect x='88' y='44' width='2' height='2'/%3E%3Crect x='140' y='12' width='2' height='2'/%3E%3Crect x='52' y='96' width='2' height='2'/%3E%3Crect x='120' y='120' width='2' height='2'/%3E%3Crect x='20' y='140' width='2' height='2'/%3E%3C/g%3E%3Cg fill='%23c9b8ff'%3E%3Crect x='64' y='16' width='2' height='2'/%3E%3Crect x='148' y='80' width='2' height='2'/%3E%3Crect x='100' y='144' width='2' height='2'/%3E%3Crect x='30' y='72' width='2' height='2'/%3E%3C/g%3E%3C/svg%3E");
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; }
+html { background: var(--bg); }
+body { background: var(--bg) var(--stars); color: var(--ink); font-family: var(--body); font-size: 22px; line-height: 1.25; }
+h1 { font-family: var(--display); font-weight: 400; margin: 0; line-height: 1.3; }
+button { font: inherit; color: inherit; cursor: pointer; border-radius: 0; }
+:focus-visible { outline: 4px solid var(--drums); outline-offset: 2px; }
+svg { shape-rendering: crispEdges; }
+
+/* the 16:9 stage */
+.fit { position: absolute; left: 50%; top: 50%; width: 1280px; height: 720px; transform-origin: center center; transform: translate(-50%, -50%); }
+.cab { position: absolute; inset: 0; background: linear-gradient(180deg, #2f2560 0 50%, #271e52 50% 100%); border: 4px solid var(--lo); box-shadow: inset 4px 4px 0 var(--hi); padding: 22px 16px 14px; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; clip-path: polygon(0 20px, 8px 20px, 8px 12px, 12px 12px, 12px 8px, 20px 8px, 20px 0, calc(100% - 20px) 0, calc(100% - 20px) 8px, calc(100% - 12px) 8px, calc(100% - 12px) 12px, calc(100% - 8px) 12px, calc(100% - 8px) 20px, 100% 20px, 100% 100%, 0 100%); }
+
+.marquee { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; background: var(--lo); border: 4px solid var(--hi); padding: 6px 16px; }
+.logo { height: 92px; width: auto; display: block; flex: none; }
+.meta { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.meta.r { align-items: flex-end; text-align: right; }
+.meta span { font-size: 19px; color: var(--ink); white-space: nowrap; }
+.meta b { font-family: var(--display); font-weight: 400; font-size: 8px; color: var(--synth); letter-spacing: 1px; margin-right: 8px; text-transform: uppercase; }
+
+.screen { position: relative; background: #07040f; border: 6px solid #000; outline: 4px solid var(--hi); padding: 12px; display: grid; grid-template-columns: 400px minmax(0, 1fr); gap: 14px; overflow: hidden; box-shadow: inset 0 0 0 4px #1a1334; transition: box-shadow .3s; min-height: 0; }
+.screen[data-mode="happy"] { box-shadow: inset 0 0 0 4px #1a1334, inset 0 0 60px rgba(125,255,138,.18); }
+.screen[data-mode="angry"] { box-shadow: inset 0 0 0 4px #1a1334, inset 0 0 60px rgba(255,74,61,.3); }
+.screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(0,0,0,.26) 0 2px, transparent 2px 4px); z-index: 7; }
+
+/* band member */
+.char { padding: 10px; display: grid; grid-template-rows: auto auto auto; align-content: space-between; gap: 8px; min-height: 0; position: relative; z-index: 1; background: var(--panel); border: 4px solid var(--lo); box-shadow: inset 4px 4px 0 var(--hi), inset -4px -4px 0 #0f0a22; }
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.tab { background: var(--panel-2); border: 3px solid var(--lo); box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 #0f0a22; font-family: var(--display); font-size: 9px; padding: 9px 0; }
+.tab[aria-pressed="true"] { background: var(--drums); color: #1b1030; box-shadow: inset 2px 2px 0 #fff3b0, inset -2px -2px 0 #b3811c; }
+.tab:active { transform: translate(2px, 2px); }
+.sprite-btn { background: #0f0a22; border: 4px solid var(--lo); padding: 0; width: 100%; aspect-ratio: 1; min-height: 0; position: relative; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+.sprite-btn img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.sprite-btn img[hidden] { display: none; }
+.sprite-btn.held { border-color: var(--happy); }
+.sprite-btn.jam img { animation: bob .28s steps(4); }
+@keyframes bob { 30% { transform: translateY(-6px) scale(1.02); } 100% { transform: none; } }
+.cap { font-family: var(--display); font-size: 9px; color: var(--muted); text-align: center; line-height: 1.7; }
+
+/* tracks */
+.stage { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; min-height: 0; position: relative; z-index: 1; }
+.hud { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; text-align: left; padding: 6px 12px; background: var(--panel); border: 4px solid var(--lo); box-shadow: inset 4px 4px 0 var(--hi), inset -4px -4px 0 #0f0a22; }
+.hud svg { width: 44px; height: 44px; display: block; }
+.hud svg[hidden] { display: none; }
+.hud .t1 { font-family: var(--display); font-size: 8px; color: var(--muted); letter-spacing: 1px; }
+.hud .t2 { font-family: var(--display); font-size: 12px; line-height: 1.6; }
+.screen[data-mode="happy"] .hud .t2 { color: var(--happy); }
+.screen[data-mode="angry"] .hud .t2 { color: var(--angry); animation: shake .3s steps(2) 3; }
+@keyframes shake { 50% { transform: translateX(4px); } }
+.chips { display: flex; gap: 8px; }
+.chip { display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 4px; border: 3px solid var(--lo); background: var(--panel-2); font-family: var(--display); font-size: 8px; }
+.chip svg { width: 28px; height: 28px; display: block; }
+.chip.sel { border-color: var(--drums); background: #3a2d73; }
+.pips { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+.pip { height: 10px; background: #1c1438; border: 2px solid var(--lo); }
+.pip:nth-child(odd) { background: #261c4a; }
+.pip.on { background: var(--drums); }
+
+.lanes { display: grid; grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 8px; min-height: 0; }
+.lane { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; min-height: 0; }
+.pad { position: relative; background: var(--panel); border: 4px solid var(--lo); box-shadow: inset 3px 3px 0 var(--hi), inset -3px -3px 0 #0f0a22; display: grid; place-items: center; padding: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+.pad .rot { display: block; width: 56px; height: 56px; }
+.pad svg, .receptor svg, .note svg { width: 100%; height: 100%; display: block; }
+.pad i { position: absolute; right: 6px; bottom: 4px; font-style: normal; font-family: var(--display); font-size: 7px; color: var(--muted); }
+.pad.down { background: var(--c); box-shadow: inset 3px 3px 0 rgba(255,255,255,.55), inset -3px -3px 0 rgba(0,0,0,.35); }
+.pad.down i { color: #1b1030; }
+.track { container-type: inline-size; position: relative; overflow: hidden; background: #0f0a22; border: 4px solid var(--lo); box-shadow: inset 0 4px 0 #1c1438; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; }
+.track::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 2px), rgba(91,74,163,.28) calc(25% - 2px) 25%); }
+.track.holding { box-shadow: inset 0 0 0 4px var(--c); }
+.receptor { position: absolute; left: 14px; top: 50%; margin-top: -32px; width: 64px; height: 64px; opacity: .95; z-index: 2; pointer-events: none; }
+.receptor .rot, .note .rot { display: block; width: 100%; height: 100%; }
+.track.holding .receptor { filter: brightness(1.6); }
+.note { position: absolute; left: 0; top: 50%; margin-top: -32px; width: 64px; height: 64px; will-change: transform; z-index: 1; pointer-events: none; }
+.note .rot { position: relative; z-index: 1; }
+.note .tail { position: absolute; left: 32px; top: 50%; height: 22px; margin-top: -11px; background: var(--c); border: 4px solid var(--lo); box-shadow: inset 3px 3px 0 rgba(255,255,255,.45), inset -3px -3px 0 rgba(0,0,0,.3); z-index: 0; }
+.note.applied .rot { opacity: .5; }
+.note.applied .tail { background: var(--happy); }
+.note.miss .rot { filter: grayscale(.8) brightness(.7); }
+.note.miss .tail { background: var(--angry); }
+.note.now .rot { filter: brightness(1.35); }
+.lanes[data-instr="guitar"] .note:not(.i-guitar), .lanes[data-instr="drums"] .note:not(.i-drums), .lanes[data-instr="synth"] .note:not(.i-synth) { display: none !important; }
+
+.count { position: absolute; inset: 0; display: grid; place-items: center; z-index: 6; font-family: var(--display); font-size: 110px; color: var(--drums); text-shadow: 6px 6px 0 var(--lo); pointer-events: none; }
+.pop { position: absolute; z-index: 5; font-family: var(--display); font-size: 16px; pointer-events: none; animation: pop .8s steps(8) forwards; text-shadow: 3px 3px 0 #000; }
+@keyframes pop { from { transform: translate(-50%, 0); opacity: 1; } to { transform: translate(-50%, -36px); opacity: 0; } }
+
+/* controls */
+.controls { display: flex; align-items: center; gap: 18px; }
+.seg { display: inline-flex; gap: 6px; }
+.btn { background: var(--panel-2); border: 4px solid var(--lo); box-shadow: inset 3px 3px 0 var(--hi), inset -3px -3px 0 #0f0a22; padding: 10px 14px; font-family: var(--display); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+.btn:active { transform: translate(2px, 2px); }
+.hint { margin: 0; color: var(--muted); font-size: 21px; flex: 1; min-width: 0; }
+.eq { display: flex; align-items: flex-end; gap: 3px; height: 42px; width: 168px; flex: none; }
+.eq span { flex: 1; min-width: 0; background: repeating-linear-gradient(0deg, var(--bc) 0 4px, transparent 4px 6px); height: 6px; }
+@media (prefers-reduced-motion: reduce) { .sprite-btn.jam img, .screen[data-mode="angry"] .hud .t2 { animation: none; } }
+</style>
+
+<div class="fit" id="fit">
+  <div class="cab">
+    <div class="marquee">
+      <div class="meta"><span><b>Audience</b>Pre-School · All genders · Noise</span><span><b>Genre</b>Music - Abstract</span></div>
+      <img class="logo" src="{{img_logo}}" alt="Bobby's Boom Band">
+      <div class="meta r"><span><b>Platform</b>Arcade – 1980s cabinet</span></div>
+    </div>
+
+    <div class="screen" id="screen" data-mode="happy">
+      <div class="count" id="count" hidden></div>
+      <div class="char">
+        <div class="tabs" role="group" aria-label="Band member">
+          <button class="tab" type="button" data-animal="dino" aria-pressed="true">SPIKE</button>
+          <button class="tab" type="button" data-animal="dog" aria-pressed="false">PAWS</button>
+          <button class="tab" type="button" data-animal="capy" aria-pressed="false">CAPY</button>
+        </div>
+        <button class="sprite-btn" id="sprite-btn" type="button" aria-label="Band member. Press and hold to play along.">
+          <img id="spr-dino" src="{{img_triceratops}}" alt="A triceratops in sunglasses and a leather jacket shredding a red flying-V guitar on stage">
+          <img id="spr-dog" src="{{img_paws}}" alt="A golden retriever in a bone headband drumming on a red drum kit" hidden>
+          <img id="spr-capy" src="{{img_capy}}" alt="A capybara in sunglasses and headphones playing a keytar" hidden>
+        </button>
+      </div>
+
+      <div class="stage" id="stage">
+        <div class="hud" id="hud">
+          <span>
+            <svg id="face-happy" viewBox="0 0 16 16" aria-hidden="true">{{f_happy}}</svg>
+            <svg id="face-angry" viewBox="0 0 16 16" aria-hidden="true" hidden>{{f_angry}}</svg>
+          </span>
+          <span><span class="t1">CROWD · SET #007</span><br><span class="t2" id="hud-status">HAPPY · 0/25 LOCKED</span></span>
+          <div class="chips" aria-label="Parts locked per instrument"><span class="chip" data-instr="guitar"><svg viewBox="0 0 20 20" aria-hidden="true">{{i_guitar}}</svg><b id="cnt-guitar">0</b></span><span class="chip" data-instr="drums"><svg viewBox="0 0 20 20" aria-hidden="true">{{i_drums}}</svg><b id="cnt-drums">0</b></span><span class="chip" data-instr="synth"><svg viewBox="0 0 20 20" aria-hidden="true">{{i_synth}}</svg><b id="cnt-synth">0</b></span></div>
+        </div>
+        <div class="pips" aria-hidden="true"><span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span></div>
+
+        <div class="lanes" id="lanes"></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <span class="seg">
+        <button class="btn" id="run" type="button" aria-pressed="false">▶ START</button>
+        <button class="btn" id="clear" type="button">CLEAR LOOP</button>
+      </span>
+      <p class="hint">Pick an animal to switch instrument. Hit the matching arrow (arrow keys, WASD or tap the pads) and hold long notes. Hits lock into the loop; misses wobble.</p>
+      <div class="eq" id="eq" aria-hidden="true"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+{{game}}
+</script>
